@@ -1,0 +1,19 @@
+services:
+  pneumonia-api:
+    build: .
+    image: pneumonia-classifier:latest
+    container_name: pneumonia-api
+    ports:
+      - "8000:8000"
+    environment:
+      - MODEL_PATH=models/pneumonia_resnet50.h5
+      - THRESHOLD=0.87
+    volumes:
+      - ./models:/app/models
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s

@@ -1,0 +1,12 @@
+__pycache__/
+*.py[cod]
+*.egg-info/
+.env
+.venv
+venv/
+*.h5
+*.onnx
+*.keras
+.DS_Store
+results/*.png
+results/*.jpg
