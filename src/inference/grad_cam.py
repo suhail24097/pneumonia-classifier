@@ -36,41 +36,47 @@ def generate_grad_cam(
                  H and W match the spatial dimensions of the target layer
                  (7x7 for conv5_block3_out with 224x224 input).
     """
-    # Build a sub-model that outputs both the target conv layer activations
-    # and the final prediction.
-    grad_model = tf.keras.Model(
-        inputs=model.inputs,
-        outputs=[
-            model.get_layer(layer_name).output,
-            model.output,
-        ],
-    )
+    # For nested models loaded from .h5, conv5_block3_out lives inside the 'resnet50'
+    # sublayer and its output tensor is not directly connected to the outer model's
+    # input graph. We handle this by running the base model eagerly to get conv
+    # features, then watching them as a tf.Variable while running the remaining
+    # head layers to compute the final score.
+    img_tensor = tf.constant(img_array, dtype=tf.float32)
+
+    # Identify the backbone submodel
+    base_model = None
+    for layer in model.layers:
+        if hasattr(layer, 'layers'):
+            base_model = layer
+            break
+
+    if base_model is None:
+        raise ValueError("Could not find a nested backbone model inside the classifier.")
+
+    # Forward pass through backbone → conv features (no tape needed here)
+    conv_features = base_model(img_tensor, training=False)  # (1, 7, 7, 2048)
+    conv_var = tf.Variable(conv_features, dtype=tf.float32)
 
     with tf.GradientTape() as tape:
-        # Cast to float32 and watch the input
-        img_tensor = tf.cast(img_array, tf.float32)
-        conv_outputs, predictions = grad_model(img_tensor)
-        # For binary sigmoid output: class score is the raw prediction
-        class_score = predictions[:, 0]
+        tape.watch(conv_var)
+        x = conv_var
+        # Run the remaining head layers (everything after the backbone)
+        for layer in model.layers:
+            if layer.name in ('input_layer_1', base_model.name):
+                continue
+            if hasattr(layer, 'name') and 'input' in layer.name:
+                continue
+            x = layer(x, training=False)
+        class_score = x[:, 0]
 
-    # Gradients of the class score w.r.t. conv layer feature maps
-    grads = tape.gradient(class_score, conv_outputs)  # (1, H, W, C)
+    grads = tape.gradient(class_score, conv_var)           # (1, 7, 7, 2048)
+    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))   # (2048,)
 
-    # Global average pooling over spatial dims to get neuron importance weights
-    pooled_grads = tf.reduce_mean(grads, axis=(0, 1, 2))  # (C,)
+    conv_out_np = conv_features[0].numpy()                 # (7, 7, 2048)
+    heatmap = conv_out_np @ pooled_grads.numpy()[..., np.newaxis]  # (7, 7, 1)
+    heatmap = np.squeeze(heatmap)                          # (7, 7)
+    heatmap = np.maximum(heatmap, 0)                       # ReLU
 
-    # Extract the conv feature maps for this image (H, W, C)
-    conv_outputs = conv_outputs[0]
-
-    # Weighted combination of feature maps
-    heatmap = conv_outputs @ pooled_grads[..., tf.newaxis]  # (H, W, 1)
-    heatmap = tf.squeeze(heatmap)                           # (H, W)
-
-    # ReLU: keep only positive activations (features that increase the score)
-    heatmap = tf.nn.relu(heatmap)
-
-    # Normalize to [0, 1]
-    heatmap = heatmap.numpy()
     max_val = heatmap.max()
     if max_val > 0:
         heatmap = heatmap / max_val
