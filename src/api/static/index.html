@@ -1,0 +1,478 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Pneumonia Detector</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: #0f1117;
+      color: #e0e0e0;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 40px 20px;
+    }
+    h1 { font-size: 1.8rem; color: #4fc3f7; margin-bottom: 6px; }
+    .subtitle { color: #888; font-size: 0.9rem; margin-bottom: 24px; }
+
+    /* Tabs */
+    .tabs { display: flex; gap: 8px; margin-bottom: 24px; }
+    .tab {
+      padding: 10px 28px;
+      border-radius: 8px;
+      border: 1px solid #2a2d3a;
+      background: #1a1d27;
+      color: #888;
+      cursor: pointer;
+      font-size: 0.95rem;
+      transition: all 0.2s;
+    }
+    .tab.active { background: #4fc3f7; color: #0f1117; font-weight: 700; border-color: #4fc3f7; }
+
+    .panel { display: none; width: 100%; max-width: 900px; }
+    .panel.active { display: block; }
+
+    .card {
+      background: #1a1d27;
+      border: 1px solid #2a2d3a;
+      border-radius: 12px;
+      padding: 28px;
+      margin-bottom: 20px;
+    }
+
+    .upload-area {
+      border: 2px dashed #2a2d3a;
+      border-radius: 10px;
+      padding: 40px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color 0.2s;
+      position: relative;
+    }
+    .upload-area:hover { border-color: #4fc3f7; }
+    .upload-area input[type="file"] {
+      position: absolute; inset: 0; opacity: 0; cursor: pointer; width: 100%; height: 100%;
+    }
+    .upload-icon { font-size: 2.5rem; margin-bottom: 10px; }
+    .upload-text { color: #888; font-size: 0.95rem; }
+    .upload-text span { color: #4fc3f7; }
+
+    .btn {
+      width: 100%;
+      padding: 14px;
+      margin-top: 18px;
+      background: #4fc3f7;
+      color: #0f1117;
+      font-size: 1rem;
+      font-weight: 700;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .btn:hover { background: #29b6f6; }
+    .btn:disabled { background: #2a2d3a; color: #555; cursor: not-allowed; }
+
+    /* Single result */
+    #preview-box { display: none; margin-top: 16px; text-align: center; }
+    #preview-img { max-height: 220px; border-radius: 8px; border: 1px solid #2a2d3a; }
+
+    .badge {
+      display: inline-block;
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 1.1rem;
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+    .badge.pneumonia { background: #ff5252; color: white; }
+    .badge.normal    { background: #4caf50; color: white; }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      gap: 12px;
+      margin-bottom: 20px;
+    }
+    .metric { background: #0f1117; border-radius: 8px; padding: 14px; text-align: center; }
+    .metric-label { font-size: 0.75rem; color: #888; margin-bottom: 4px; }
+    .metric-value { font-size: 1.3rem; font-weight: 700; color: #4fc3f7; }
+
+    .prob-row { margin-bottom: 10px; }
+    .prob-label { display: flex; justify-content: space-between; font-size: 0.85rem; margin-bottom: 4px; }
+    .progress-bar-wrap { background: #0f1117; border-radius: 6px; height: 10px; overflow: hidden; }
+    .progress-bar { height: 100%; border-radius: 6px; transition: width 0.6s ease; }
+    .bar-pneumonia { background: #ff5252; }
+    .bar-normal    { background: #4caf50; }
+
+    .images-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 20px; }
+    .img-box { text-align: center; }
+    .img-box p { font-size: 0.8rem; color: #888; margin-bottom: 8px; }
+    .img-box img { width: 100%; border-radius: 8px; border: 1px solid #2a2d3a; }
+
+    /* Batch */
+    .file-chips { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+    .chip {
+      background: #0f1117;
+      border: 1px solid #2a2d3a;
+      border-radius: 20px;
+      padding: 4px 12px;
+      font-size: 0.8rem;
+      color: #aaa;
+      display: flex; align-items: center; gap: 6px;
+    }
+    .chip span { color: #555; cursor: pointer; font-size: 1rem; }
+
+    .batch-results { display: flex; flex-direction: column; gap: 16px; }
+
+    .batch-item {
+      background: #0f1117;
+      border-radius: 10px;
+      border: 1px solid #2a2d3a;
+      overflow: hidden;
+    }
+    .batch-item-header {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .batch-item-header:hover { background: #161922; }
+    .batch-thumb {
+      width: 56px; height: 56px;
+      object-fit: cover;
+      border-radius: 6px;
+      border: 1px solid #2a2d3a;
+      flex-shrink: 0;
+    }
+    .batch-info { flex: 1; }
+    .batch-filename { font-size: 0.85rem; color: #aaa; margin-bottom: 4px; }
+    .batch-badge {
+      display: inline-block;
+      padding: 3px 12px;
+      border-radius: 12px;
+      font-size: 0.82rem;
+      font-weight: 700;
+    }
+    .batch-badge.pneumonia { background: #ff5252; color: white; }
+    .batch-badge.normal    { background: #4caf50; color: white; }
+    .batch-conf { font-size: 0.8rem; color: #888; margin-left: 8px; }
+    .batch-chevron { color: #555; transition: transform 0.2s; font-size: 0.9rem; }
+    .batch-chevron.open { transform: rotate(90deg); }
+
+    .batch-item-body { display: none; padding: 0 16px 16px; }
+    .batch-item-body.open { display: block; }
+
+    .batch-imgs { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 12px; }
+    .batch-imgs img { width: 100%; border-radius: 8px; border: 1px solid #2a2d3a; }
+    .batch-imgs p { font-size: 0.75rem; color: #666; margin-bottom: 6px; text-align: center; }
+
+    .error-msg {
+      background: #2d1515;
+      border: 1px solid #ff5252;
+      color: #ff5252;
+      padding: 12px 16px;
+      border-radius: 8px;
+      margin-top: 12px;
+      font-size: 0.9rem;
+      display: none;
+    }
+    .spinner { display: none; text-align: center; padding: 20px; color: #888; }
+
+    .summary-bar {
+      display: none;
+      background: #0f1117;
+      border-radius: 8px;
+      padding: 14px 20px;
+      margin-bottom: 16px;
+      display: none;
+      gap: 24px;
+      align-items: center;
+    }
+    .summary-bar.show { display: flex; }
+    .sum-item { text-align: center; }
+    .sum-label { font-size: 0.75rem; color: #888; }
+    .sum-val { font-size: 1.2rem; font-weight: 700; }
+  </style>
+</head>
+<body>
+
+  <h1>🫁 Pneumonia Detector</h1>
+  <p class="subtitle">ResNet50 — Chest X-Ray Classification (NORMAL vs PNEUMONIA)</p>
+
+  <div class="tabs">
+    <div class="tab active" onclick="switchTab('single')">Single Image</div>
+    <div class="tab"        onclick="switchTab('batch')">Batch (Multiple Images)</div>
+  </div>
+
+  <!-- ── SINGLE PANEL ── -->
+  <div class="panel active" id="panel-single">
+    <div class="card">
+      <div class="upload-area">
+        <input type="file" id="s-file" accept="image/jpeg,image/png" />
+        <div class="upload-icon">📤</div>
+        <div class="upload-text">Drop X-ray here or <span>browse</span></div>
+        <div class="upload-text" style="margin-top:6px;font-size:0.8rem;">JPEG / PNG only</div>
+      </div>
+      <div id="preview-box"><img id="preview-img" src="" alt="Preview" /></div>
+      <div class="error-msg" id="s-error"></div>
+      <button class="btn" id="s-btn" disabled>Analyze X-Ray</button>
+    </div>
+
+    <div class="spinner" id="s-spinner">⏳ Analyzing...</div>
+
+    <div class="card" id="s-result" style="display:none">
+      <div id="s-badge" style="text-align:center;margin-bottom:16px"></div>
+      <div class="metrics" id="s-metrics"></div>
+      <div class="prob-row">
+        <div class="prob-label"><span>PNEUMONIA probability</span><span id="s-pp"></span></div>
+        <div class="progress-bar-wrap"><div class="progress-bar bar-pneumonia" id="s-bar-p" style="width:0%"></div></div>
+      </div>
+      <div class="prob-row">
+        <div class="prob-label"><span>NORMAL probability</span><span id="s-pn"></span></div>
+        <div class="progress-bar-wrap"><div class="progress-bar bar-normal" id="s-bar-n" style="width:0%"></div></div>
+      </div>
+      <div class="images-row" id="s-imgs">
+        <div class="img-box"><p>Original X-Ray</p><img id="s-orig" src="" /></div>
+        <div class="img-box"><p>Grad-CAM Heatmap</p><img id="s-cam" src="" /></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── BATCH PANEL ── -->
+  <div class="panel" id="panel-batch">
+    <div class="card">
+      <div class="upload-area">
+        <input type="file" id="b-files" accept="image/jpeg,image/png" multiple />
+        <div class="upload-icon">📂</div>
+        <div class="upload-text">Drop multiple X-rays here or <span>browse</span></div>
+        <div class="upload-text" style="margin-top:6px;font-size:0.8rem;">JPEG / PNG — select all at once (Ctrl+Click)</div>
+      </div>
+      <div class="file-chips" id="b-chips"></div>
+      <div class="error-msg" id="b-error"></div>
+      <button class="btn" id="b-btn" disabled>Analyze All Images</button>
+    </div>
+
+    <div class="spinner" id="b-spinner">⏳ Analyzing all images...</div>
+
+    <div id="b-results-wrap" style="display:none">
+      <div class="summary-bar" id="b-summary">
+        <div class="sum-item"><div class="sum-label">Total</div><div class="sum-val" id="b-total">0</div></div>
+        <div class="sum-item"><div class="sum-label" style="color:#ff5252">PNEUMONIA</div><div class="sum-val" style="color:#ff5252" id="b-count-p">0</div></div>
+        <div class="sum-item"><div class="sum-label" style="color:#4caf50">NORMAL</div><div class="sum-val" style="color:#4caf50" id="b-count-n">0</div></div>
+        <div class="sum-item"><div class="sum-label">Avg Confidence</div><div class="sum-val" id="b-avg-conf">0%</div></div>
+      </div>
+      <div class="batch-results" id="b-results"></div>
+    </div>
+  </div>
+
+  <script>
+    /* ── Tab switching ── */
+    function switchTab(name) {
+      document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', ['single','batch'][i] === name));
+      document.querySelectorAll('.panel').forEach(p => p.classList.remove('active'));
+      document.getElementById('panel-' + name).classList.add('active');
+    }
+
+    /* ── SINGLE ── */
+    const sFile   = document.getElementById('s-file');
+    const sBtn    = document.getElementById('s-btn');
+    const sResult = document.getElementById('s-result');
+    const sSpinner= document.getElementById('s-spinner');
+    const sError  = document.getElementById('s-error');
+    let sSelectedFile = null;
+
+    sFile.addEventListener('change', () => {
+      sSelectedFile = sFile.files[0];
+      if (!sSelectedFile) return;
+      const url = URL.createObjectURL(sSelectedFile);
+      document.getElementById('preview-img').src = url;
+      document.getElementById('s-orig').src = url;
+      document.getElementById('preview-box').style.display = 'block';
+      sBtn.disabled = false;
+      sResult.style.display = 'none';
+      sError.style.display = 'none';
+    });
+
+    sBtn.addEventListener('click', async () => {
+      if (!sSelectedFile) return;
+      sBtn.disabled = true;
+      sSpinner.style.display = 'block';
+      sResult.style.display = 'none';
+      sError.style.display = 'none';
+
+      const fd = new FormData();
+      fd.append('file', sSelectedFile);
+      try {
+        const res  = await fetch('/predict/explain', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.detail || 'Server error');
+        showSingle(data);
+      } catch(e) {
+        sError.textContent = '❌ ' + e.message;
+        sError.style.display = 'block';
+      } finally {
+        sBtn.disabled = false;
+        sSpinner.style.display = 'none';
+      }
+    });
+
+    function showSingle(d) {
+      const isPneu = d.prediction === 'PNEUMONIA';
+      document.getElementById('s-badge').innerHTML =
+        `<span class="badge ${isPneu?'pneumonia':'normal'}">${d.prediction}</span>`;
+      document.getElementById('s-metrics').innerHTML = `
+        <div class="metric"><div class="metric-label">Confidence</div><div class="metric-value">${(d.confidence*100).toFixed(1)}%</div></div>
+        <div class="metric"><div class="metric-label">Threshold</div><div class="metric-value">${d.threshold_used}</div></div>
+        <div class="metric"><div class="metric-label">Inference</div><div class="metric-value">${d.inference_time_ms} ms</div></div>
+      `;
+      const pp = (d.prob_pneumonia*100).toFixed(1), pn = (d.prob_normal*100).toFixed(1);
+      document.getElementById('s-pp').textContent = pp+'%';
+      document.getElementById('s-pn').textContent = pn+'%';
+      document.getElementById('s-bar-p').style.width = pp+'%';
+      document.getElementById('s-bar-n').style.width = pn+'%';
+      if (d.grad_cam_image) {
+        document.getElementById('s-cam').src = 'data:image/png;base64,' + d.grad_cam_image;
+        document.getElementById('s-imgs').style.display = 'grid';
+      } else {
+        document.getElementById('s-imgs').style.display = 'none';
+      }
+      sResult.style.display = 'block';
+    }
+
+    /* ── BATCH ── */
+    const bFilesInput = document.getElementById('b-files');
+    const bBtn        = document.getElementById('b-btn');
+    const bSpinner    = document.getElementById('b-spinner');
+    const bError      = document.getElementById('b-error');
+    const bChips      = document.getElementById('b-chips');
+    const bResultsWrap= document.getElementById('b-results-wrap');
+    const bResults    = document.getElementById('b-results');
+    let bFileList = [];
+    let bObjectUrls = [];
+
+    bFilesInput.addEventListener('change', () => {
+      // Revoke old URLs
+      bObjectUrls.forEach(u => URL.revokeObjectURL(u));
+      bObjectUrls = [];
+      bFileList = Array.from(bFilesInput.files);
+      renderChips();
+      bBtn.disabled = bFileList.length === 0;
+      bResultsWrap.style.display = 'none';
+      bError.style.display = 'none';
+    });
+
+    function renderChips() {
+      bChips.innerHTML = '';
+      bFileList.forEach((f, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = `📄 ${f.name} <span onclick="removeFile(${i})">×</span>`;
+        bChips.appendChild(chip);
+      });
+    }
+
+    function removeFile(idx) {
+      bFileList.splice(idx, 1);
+      renderChips();
+      bBtn.disabled = bFileList.length === 0;
+    }
+
+    bBtn.addEventListener('click', async () => {
+      if (bFileList.length === 0) return;
+      bBtn.disabled = true;
+      bSpinner.style.display = 'block';
+      bResultsWrap.style.display = 'none';
+      bResults.innerHTML = '';
+      bError.style.display = 'none';
+
+      // Call /predict/explain for each image in parallel
+      const promises = bFileList.map(async (file) => {
+        const url = URL.createObjectURL(file);
+        bObjectUrls.push(url);
+        const fd = new FormData();
+        fd.append('file', file);
+        const res  = await fetch('/predict/explain', { method: 'POST', body: fd });
+        const data = await res.json();
+        if (!res.ok) throw new Error(`${file.name}: ${data.detail || 'error'}`);
+        return { file, url, data };
+      });
+
+      try {
+        const all = await Promise.all(promises);
+        showBatch(all);
+      } catch(e) {
+        bError.textContent = '❌ ' + e.message;
+        bError.style.display = 'block';
+      } finally {
+        bBtn.disabled = false;
+        bSpinner.style.display = 'none';
+      }
+    });
+
+    function showBatch(all) {
+      const totalP  = all.filter(r => r.data.prediction === 'PNEUMONIA').length;
+      const totalN  = all.length - totalP;
+      const avgConf = all.reduce((s,r) => s + r.data.confidence, 0) / all.length;
+
+      document.getElementById('b-total').textContent   = all.length;
+      document.getElementById('b-count-p').textContent = totalP;
+      document.getElementById('b-count-n').textContent = totalN;
+      document.getElementById('b-avg-conf').textContent= (avgConf*100).toFixed(1) + '%';
+      document.getElementById('b-summary').classList.add('show');
+
+      bResults.innerHTML = '';
+      all.forEach((r, idx) => {
+        const d = r.data;
+        const isPneu = d.prediction === 'PNEUMONIA';
+        const pp = (d.prob_pneumonia*100).toFixed(1);
+        const pn = (d.prob_normal*100).toFixed(1);
+
+        const item = document.createElement('div');
+        item.className = 'batch-item';
+        item.innerHTML = `
+          <div class="batch-item-header" onclick="toggleItem(${idx})">
+            <img class="batch-thumb" src="${r.url}" />
+            <div class="batch-info">
+              <div class="batch-filename">${r.file.name}</div>
+              <span class="batch-badge ${isPneu?'pneumonia':'normal'}">${d.prediction}</span>
+              <span class="batch-conf">Confidence: ${(d.confidence*100).toFixed(1)}%  ·  ${d.inference_time_ms} ms</span>
+            </div>
+            <div class="batch-chevron" id="chev-${idx}">▶</div>
+          </div>
+          <div class="batch-item-body" id="body-${idx}">
+            <div class="prob-row">
+              <div class="prob-label"><span>PNEUMONIA</span><span>${pp}%</span></div>
+              <div class="progress-bar-wrap"><div class="progress-bar bar-pneumonia" style="width:${pp}%"></div></div>
+            </div>
+            <div class="prob-row">
+              <div class="prob-label"><span>NORMAL</span><span>${pn}%</span></div>
+              <div class="progress-bar-wrap"><div class="progress-bar bar-normal" style="width:${pn}%"></div></div>
+            </div>
+            <div class="batch-imgs">
+              <div><p>Original X-Ray</p><img src="${r.url}" /></div>
+              <div><p>Grad-CAM Heatmap</p><img src="${d.grad_cam_image ? 'data:image/png;base64,'+d.grad_cam_image : ''}" /></div>
+            </div>
+          </div>
+        `;
+        bResults.appendChild(item);
+      });
+
+      bResultsWrap.style.display = 'block';
+    }
+
+    function toggleItem(idx) {
+      const body = document.getElementById('body-'+idx);
+      const chev = document.getElementById('chev-'+idx);
+      const open = body.classList.toggle('open');
+      chev.classList.toggle('open', open);
+    }
+  </script>
+</body>
+</html>

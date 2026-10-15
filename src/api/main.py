@@ -2,9 +2,11 @@ import base64
 import os
 from contextlib import asynccontextmanager
 from typing import Annotated
+from pathlib import Path
 
 from fastapi import FastAPI, File, UploadFile, HTTPException, Query
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, FileResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
 
 from src.inference.predictor import PneumoniaPredictor, DEFAULT_THRESHOLD
@@ -32,6 +34,14 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+_static_dir = Path(__file__).parent / "static"
+if _static_dir.exists():
+    app.mount("/static", StaticFiles(directory=str(_static_dir)), name="static")
+
+@app.get("/", include_in_schema=False)
+def index():
+    return FileResponse(str(_static_dir / "index.html"))
+
 
 class PredictionResponse(BaseModel):
     prediction:        str
@@ -51,10 +61,6 @@ class ExplainPredictionResponse(BaseModel):
     inference_time_ms: float
     grad_cam_image:    str  # base64-encoded PNG
 
-
-class BatchPredictionResponse(BaseModel):
-    count:   int
-    results: list[dict]
 
 
 class HealthResponse(BaseModel):
@@ -147,31 +153,6 @@ async def predict_explain(
         raise HTTPException(status_code=500, detail=f"Explanation inference failed: {str(e)}")
 
 
-@app.post("/predict/batch", response_model=BatchPredictionResponse, tags=["Inference"])
-async def predict_batch(
-    files: Annotated[list[UploadFile], File(description="Multiple chest X-ray images")],
-):
-    if len(files) > 20:
-        raise HTTPException(status_code=422, detail="Maximum 20 images per batch.")
-
-    for f in files:
-        _validate_image(f)
-
-    images = [await f.read() for f in files]
-    empty  = [f.filename for f, img in zip(files, images) if not img]
-    if empty:
-        raise HTTPException(status_code=422, detail=f"Empty files: {empty}")
-
-    try:
-        results = predictor.predict_batch(images)
-        for r, f in zip(results, files):
-            r["filename"] = f.filename
-        return {"count": len(results), "results": results}
-
-    except ValueError as e:
-        raise HTTPException(status_code=422, detail=str(e))
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Batch inference failed: {str(e)}")
 
 
 @app.get("/model/info", tags=["System"])

@@ -53,6 +53,16 @@ uvicorn src.api.main:app --reload --port 8000
 | POST   | /predict/explain   | Classification + Grad-CAM heatmap (base64 PNG)   |
 | POST   | /predict/batch     | Batch classification (up to 20 images)           |
 
+## Web UI
+
+Open `http://localhost:8000` for the visual interface.
+
+**Single Image tab**: Upload one X-ray → get prediction badge (NORMAL/PNEUMONIA), confidence score, probability bars, and Grad-CAM heatmap side-by-side with original.
+
+**Batch tab**: Upload multiple X-rays at once → summary (total/PNEUMONIA count/NORMAL count/avg confidence) + expandable result cards with Grad-CAM for each image.
+
+---
+
 ### Example — single prediction
 
 ```bash
@@ -92,18 +102,13 @@ curl -X POST "http://localhost:8000/predict?threshold=0.5" \
 
 ## Model Performance
 
-| Metric             | Threshold 0.5 (default) | Threshold 0.87 (tuned) |
-|--------------------|------------------------|------------------------|
-| Accuracy           | 78%                    | **92%**                |
-| AUC-ROC            | 0.9576                 | 0.9576                 |
-| NORMAL Recall      | 41%                    | **85%**                |
-| NORMAL Precision   | —                      | 96%                    |
-| PNEUMONIA Recall   | 99%                    | **96%**                |
-| PNEUMONIA Precision| —                      | 90%                    |
-| F1 (NORMAL)        | —                      | 0.90                   |
-| F1 (PNEUMONIA)     | —                      | 0.93                   |
-| Sensitivity        | —                      | **95.9%**              |
-| Specificity        | —                      | 85.0%                  |
+| Metric | Default (0.5) | Optimal (0.87) |
+|--------|--------------|----------------|
+| Accuracy | 78% | **92%** |
+| AUC-ROC | 0.9576 | 0.9576 |
+| PNEUMONIA Recall | 99% | 96% |
+| NORMAL Recall | 41% | **85%** |
+| F1 (macro avg) | 0.71 | **0.91** |
 
 **Confusion Matrix at threshold 0.87** (test set, 624 images):
 
