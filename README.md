@@ -2,6 +2,119 @@
 
 Binary classification of chest X-rays (NORMAL vs PNEUMONIA) using a fine-tuned ResNet50 backbone, served via FastAPI, containerized with Docker.
 
+**Results:** Accuracy 92% · AUC-ROC 0.9576 · PNEUMONIA Recall 96% · NORMAL Recall 85% · Threshold 0.87
+
+---
+
+## Complete Setup & Run Guide (Start to End)
+
+### Step 1 — Clone the Repository
+
+```bash
+git clone https://github.com/suhail24097/pneumonia-classifier.git
+cd pneumonia-classifier
+```
+
+### Step 2 — Download the Trained Model
+
+The model file (`pneumonia_resnet50.h5`, 217 MB) is not included in the repo.  
+Download it and place it in the `models/` folder:
+
+```bash
+mkdir -p models/
+# Download from Google Drive (link provided separately)
+# Place as: models/pneumonia_resnet50.h5
+```
+
+### Step 3 — Option A: Run with Docker (Recommended)
+
+```bash
+# Build and start
+sudo docker build -t pneumonia-classifier .
+sudo docker run -p 8000:8000 -v $(pwd)/models:/app/models pneumonia-classifier
+
+# OR with docker compose
+sudo docker compose up --build
+```
+
+API will be available at: `http://localhost:8000`
+
+### Step 3 — Option B: Run Locally (without Docker)
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
+# Start the API server
+MODEL_PATH=models/pneumonia_resnet50.h5 uvicorn src.api.main:app --reload --port 8000
+```
+
+### Step 4 — Open Web UI
+
+Open your browser and go to:
+```
+http://localhost:8000
+```
+
+- **Single Image tab** — Upload one X-ray, get prediction + Grad-CAM heatmap
+- **Batch tab** — Upload multiple X-rays, get summary + per-image results
+
+### Step 5 — Test via API
+
+```bash
+# Health check
+curl http://localhost:8000/health
+
+# Predict on a sample image
+curl -X POST http://localhost:8000/predict \
+  -F "file=@results/test_samples/PNEUMONIA/person101_bacteria_485.jpeg"
+
+# Predict with Grad-CAM explanation
+curl -X POST http://localhost:8000/predict/explain \
+  -F "file=@results/test_samples/NORMAL/IM-0001-0001.jpeg"
+```
+
+Expected output for `/predict`:
+```json
+{
+  "prediction": "PNEUMONIA",
+  "confidence": 0.9998,
+  "prob_pneumonia": 0.9998,
+  "prob_normal": 0.0002,
+  "threshold_used": 0.87,
+  "inference_time_ms": 158.0
+}
+```
+
+### Step 6 — Run Tests
+
+```bash
+pip install pytest httpx
+pytest tests/ -v
+```
+
+### Step 7 — Export to ONNX (Optional)
+
+```bash
+python scripts/export_onnx.py \
+  --model models/pneumonia_resnet50.h5 \
+  --output models/pneumonia_resnet50.onnx
+```
+
+### Step 8 — Re-train the Model (Optional)
+
+Open the training notebook in Google Colab:
+```
+notebooks/pneumonia_classification.ipynb    # v1 — ResNet50 (trained, 92% accuracy)
+notebooks/pneumonia_classification_v2.ipynb # v2 — DenseNet121 (improved architecture)
+```
+
+1. Upload notebook to [Google Colab](https://colab.research.google.com)
+2. Set Runtime → T4 GPU
+3. Upload `archive.zip` (Kaggle chest X-ray dataset) to Google Drive at:  
+   `MyDrive/Colab Notebooks/dataset/archive.zip`
+4. Run All cells
+
 ---
 
 ## System Architecture
