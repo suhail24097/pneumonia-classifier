@@ -51,7 +51,6 @@ uvicorn src.api.main:app --reload --port 8000
 | GET    | /model/info        | Model metadata (path, input size, classes)       |
 | POST   | /predict           | Single image classification                      |
 | POST   | /predict/explain   | Classification + Grad-CAM heatmap (base64 PNG)   |
-| POST   | /predict/batch     | Batch classification (up to 20 images)           |
 
 ## Web UI
 
@@ -187,7 +186,7 @@ pneumonia-classifier/
 | Docker          | Full containerization with `docker-compose up --build`               |
 | Grad-CAM        | Visual explainability — heatmap shows which lung regions matter       |
 | ONNX Export     | `python scripts/export_onnx.py` for cross-platform deployment        |
-| Batch API       | Up to 20 X-rays in a single POST request                             |
+| Batch Web UI    | Upload multiple X-rays via browser — parallel calls + summary cards  |
 | Threshold API   | Override decision threshold per-request via query parameter          |
 | Automated Tests | `pytest tests/` covers all endpoints                                 |
 | Tech Report     | Full 7-section PDF in `docs/technical_report.pdf`                    |
