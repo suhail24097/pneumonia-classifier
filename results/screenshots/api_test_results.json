@@ -1,0 +1,29 @@
+{
+  "api_live_test_results": {
+    "pneumonia_sample": {
+      "input": "results/test_samples/PNEUMONIA/person101_bacteria_485.jpeg",
+      "prediction": "PNEUMONIA",
+      "confidence": 1.0,
+      "prob_pneumonia": 1.0,
+      "prob_normal": 0.0,
+      "threshold_used": 0.87,
+      "inference_time_ms": 1106.7,
+      "status": "CORRECT"
+    },
+    "normal_sample": {
+      "input": "results/test_samples/NORMAL/IM-0001-0001.jpeg",
+      "prediction": "NORMAL",
+      "confidence": 0.9978,
+      "prob_pneumonia": 0.0022,
+      "prob_normal": 0.9978,
+      "threshold_used": 0.87,
+      "inference_time_ms": 106.0,
+      "status": "CORRECT"
+    }
+  },
+  "grad_cam_outputs": {
+    "pneumonia": "results/screenshots/pneumonia_gradcam_result.png",
+    "normal": "results/screenshots/normal_gradcam_result.png"
+  },
+  "note": "Live API results from running system. Grad-CAM heatmaps show model attention regions."
+}
