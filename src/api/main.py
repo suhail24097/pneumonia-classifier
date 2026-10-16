@@ -155,6 +155,28 @@ async def predict_explain(
 
 
 
+class BatchPredictionResponse(BaseModel):
+    count:   int
+    results: list[PredictionResponse]
+
+
+@app.post("/predict/batch", response_model=BatchPredictionResponse, tags=["Inference"])
+async def predict_batch(
+    files: list[UploadFile] = File(description="One or more chest X-ray images (JPEG or PNG)"),
+):
+    """Run prediction on multiple images and return per-image results plus total count."""
+    if not files:
+        raise HTTPException(status_code=422, detail="No files uploaded.")
+    results = []
+    for file in files:
+        _validate_image(file)
+        image_bytes = await file.read()
+        if not image_bytes:
+            raise HTTPException(status_code=422, detail=f"File '{file.filename}' is empty.")
+        results.append(predictor.predict(image_bytes))
+    return {"count": len(results), "results": results}
+
+
 @app.get("/model/info", tags=["System"])
 def model_info():
     if predictor is None:

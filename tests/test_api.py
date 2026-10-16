@@ -86,7 +86,7 @@ def test_batch_predict():
         ],
     )
     assert resp.status_code == 200
-    assert resp.json()["count"] == 1
+    assert resp.json()["count"] == 2
 
 
 def test_model_info():

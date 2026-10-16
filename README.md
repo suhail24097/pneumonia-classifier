@@ -16,15 +16,15 @@ git clone https://github.com/suhail24097/pneumonia-classifier.git
 cd pneumonia-classifier
 ```
 
-### Step 2 — Download the Trained Model
+### Step 2 — Place the Trained Model
 
-The model file (`pneumonia_resnet50.h5`, 217 MB) is not included in the repo.  
-Download it and place it in the `models/` folder:
+The model file (`pneumonia_resnet50.h5`, 217 MB) is included in the ZIP submission.  
+Place it in the `models/` folder:
 
 ```bash
 mkdir -p models/
-# Download from Google Drive (link provided separately)
-# Place as: models/pneumonia_resnet50.h5
+# The file is included in the ZIP at models/pneumonia_resnet50.h5
+# If re-downloading from Kaggle, train via Step 8 and save to models/pneumonia_resnet50.h5
 ```
 
 ### Step 3 — Option A: Run with Docker (Recommended)
@@ -163,8 +163,9 @@ uvicorn src.api.main:app --reload --port 8000
 |--------|--------------------|--------------------------------------------------|
 | GET    | /health            | Server status and active threshold               |
 | GET    | /model/info        | Model metadata (path, input size, classes)       |
-| POST   | /predict           | Single image classification                      |
+| POST   | /predict           | Single image classification (~150ms)             |
 | POST   | /predict/explain   | Classification + Grad-CAM heatmap (base64 PNG)   |
+| POST   | /predict/batch     | Batch classification — multiple images at once   |
 
 ## Web UI
 
@@ -304,6 +305,23 @@ pneumonia-classifier/
 | Threshold API   | Override decision threshold per-request via query parameter          |
 | Automated Tests | `pytest tests/` covers all endpoints                                 |
 | Tech Report     | Full 7-section PDF in `docs/technical_report.pdf`                    |
+
+---
+
+## Results and Limitations
+
+**Results (v1 — ResNet50, active model):**
+- Accuracy: **92%** at threshold 0.87 · AUC-ROC: **0.9576**
+- PNEUMONIA recall: 96% · NORMAL recall: 85% · F1 macro: 0.91
+- 51 errors on 624 test images (35 FP, 16 FN)
+
+**Known Limitations:**
+- Single-institution dataset (Guangzhou Women and Children's Medical Center) — may not generalise to different X-ray equipment or patient demographics
+- No demographic diversity analysis (age, sex, ethnicity)
+- Validated only for bacterial and viral pneumonia; not tested on COVID-19 or fungal pneumonia
+- Tested on JPEG/PNG only — not validated on clinical-grade DICOM images
+- Not a clinical diagnostic tool; intended as AI-assisted decision support only
+- Model explainability via Grad-CAM is qualitative, not a substitute for radiologist review
 
 ---
 
