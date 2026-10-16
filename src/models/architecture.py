@@ -1,27 +1,71 @@
 """
-ResNet50-based pneumonia classifier architecture.
+Pneumonia classifier architectures — ResNet50 (v1) and DenseNet121 (v2).
 
-Architecture:
-    ResNet50 (ImageNet pretrained)
-    → GlobalAveragePooling2D
-    → BatchNormalization
-    → Dense(256, relu)
-    → Dropout(0.4)
-    → Dense(64, relu)
-    → Dropout(0.2)
-    → Dense(1, sigmoid)
+v1 — ResNet50:
+    ResNet50 (ImageNet) → GAP → BN → Dense(256) → Dropout(0.4)
+    → Dense(64) → Dropout(0.2) → Sigmoid
 
-Training strategy:
-    Phase 1: Freeze ResNet50 base, train custom head only (lr=1e-3, 10 epochs).
-    Phase 2: Unfreeze top 30 layers of ResNet50, fine-tune (lr=1e-4, 15 epochs).
+v2 — DenseNet121:
+    DenseNet121 (ImageNet) → GAP → BN → Dense(512) → Dropout(0.5)
+    → Dense(256) → Dropout(0.3) → Dense(1, sigmoid)
+    Training: Focal Loss + Cosine LR Decay + 2-phase fine-tuning
 """
 
 import tensorflow as tf
 from tensorflow.keras import Model, layers
-from tensorflow.keras.applications import ResNet50
+from tensorflow.keras.applications import ResNet50, DenseNet121
 
 
 IMG_SIZE = 224
+
+
+def build_densenet121_classifier(trainable_base: bool = False) -> Model:
+    """
+    Build DenseNet121-based pneumonia classifier (v2).
+
+    Improvements over v1:
+        - DenseNet121 backbone: denser feature reuse, fewer parameters
+        - Larger head (Dense 512→256) for more capacity
+        - Designed for Focal Loss + Cosine LR training
+
+    Args:
+        trainable_base: If False (Phase 1), base frozen; if True (Phase 2),
+                        caller unfreezes top layers selectively.
+    Returns:
+        Uncompiled Keras Model.
+    """
+    base_model = DenseNet121(
+        weights="imagenet",
+        include_top=False,
+        input_shape=(IMG_SIZE, IMG_SIZE, 3),
+    )
+    base_model.trainable = trainable_base
+
+    inputs = tf.keras.Input(shape=(IMG_SIZE, IMG_SIZE, 3), name="input_image")
+    x = base_model(inputs, training=False)
+
+    x = layers.GlobalAveragePooling2D(name="gap")(x)
+    x = layers.BatchNormalization(name="bn")(x)
+
+    x = layers.Dense(512, activation="relu", name="dense_512")(x)
+    x = layers.Dropout(0.5, name="dropout_05")(x)
+
+    x = layers.Dense(256, activation="relu", name="dense_256")(x)
+    x = layers.Dropout(0.3, name="dropout_03")(x)
+
+    outputs = layers.Dense(1, activation="sigmoid", name="output")(x)
+
+    return Model(inputs=inputs, outputs=outputs, name="pneumonia_densenet121")
+
+
+def unfreeze_top_layers_densenet(model: Model, n_layers: int = 50) -> Model:
+    """Unfreeze top n_layers of DenseNet121 base for Phase 2 fine-tuning."""
+    base_model = model.get_layer("densenet121")
+    base_model.trainable = True
+    freeze_until = len(base_model.layers) - n_layers
+    for layer in base_model.layers[:freeze_until]:
+        layer.trainable = False
+    return model
 
 
 def build_resnet50_classifier(trainable_base: bool = False) -> Model:

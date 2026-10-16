@@ -1,8 +1,9 @@
 # Chest X-Ray Pneumonia Detection
 
-Binary classification of chest X-rays (NORMAL vs PNEUMONIA) using a fine-tuned ResNet50 backbone, served via FastAPI, containerized with Docker.
+Binary classification of chest X-rays (NORMAL vs PNEUMONIA) using transfer learning (ResNet50 v1 / DenseNet121 v2), served via FastAPI, containerized with Docker.
 
-**Results:** Accuracy 92% · AUC-ROC 0.9576 · PNEUMONIA Recall 96% · NORMAL Recall 85% · Threshold 0.87
+**v1 Results (active model):** Accuracy 92% · AUC-ROC 0.9576 · PNEUMONIA Recall 96% · NORMAL Recall 85% · Threshold 0.87  
+**v2 Progress:** DenseNet121 + Focal Loss + Cosine LR — Phase 1 val_auc **0.9786** (surpasses v1 already)
 
 ---
 
@@ -105,8 +106,8 @@ python scripts/export_onnx.py \
 
 Open the training notebook in Google Colab:
 ```
-notebooks/pneumonia_classification.ipynb    # v1 — ResNet50 (trained, 92% accuracy)
-notebooks/pneumonia_classification_v2.ipynb # v2 — DenseNet121 (improved architecture)
+notebooks/pneumonia_classification.ipynb    # v1 — ResNet50 (trained, 92% accuracy, AUC 0.9576)
+notebooks/pneumonia_classification_v2.ipynb # v2 — DenseNet121 + Focal Loss + Cosine LR (Phase 1 val_auc 0.9786)
 ```
 
 1. Upload notebook to [Google Colab](https://colab.research.google.com)
@@ -329,8 +330,15 @@ python scripts/export_onnx.py \
 
 ## Architecture Details
 
-- **Backbone**: ResNet50 pretrained on ImageNet (frozen in Phase 1, top-30 layers fine-tuned in Phase 2)
-- **Head**: GlobalAveragePooling2D → BatchNorm → Dense(256,relu) → Dropout(0.4) → Dense(64,relu) → Dropout(0.2) → Dense(1,sigmoid)
-- **Preprocessing**: ResNet50's `preprocess_input` (subtracts ImageNet means, NOT a /255 rescale)
-- **Grad-CAM target layer**: `conv5_block3_out` (final convolutional block, 7×7×2048)
+**v1 — ResNet50:**
+- **Backbone**: ResNet50 pretrained on ImageNet (frozen Phase 1, top-30 fine-tuned Phase 2)
+- **Head**: GAP → BatchNorm → Dense(256) → Dropout(0.4) → Dense(64) → Dropout(0.2) → Sigmoid
+- **Preprocessing**: `resnet50.preprocess_input` (ImageNet mean subtraction)
+- **Grad-CAM**: `conv5_block3_out` (7×7×2048)
+
+**v2 — DenseNet121:**
+- **Backbone**: DenseNet121 pretrained on ImageNet (frozen Phase 1, top-50 fine-tuned Phase 2)
+- **Head**: GAP → BatchNorm → Dense(512) → Dropout(0.5) → Dense(256) → Dropout(0.3) → Sigmoid
+- **Loss**: Focal Loss (γ=2, per-class α) · **LR**: Cosine Decay (1e-4 → 1e-6)
+- **Preprocessing**: `densenet.preprocess_input` (auto-selected by predictor based on model name)
 - **Framework**: TensorFlow 2 / Keras

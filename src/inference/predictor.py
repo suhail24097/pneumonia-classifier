@@ -4,7 +4,6 @@ import numpy as np
 import cv2
 import tensorflow as tf
 from tensorflow.keras.models import load_model
-from tensorflow.keras.applications.resnet50 import preprocess_input
 from pathlib import Path
 
 from src.inference.grad_cam import generate_grad_cam, overlay_grad_cam
@@ -15,15 +14,26 @@ DEFAULT_THRESHOLD = 0.87
 LABELS            = {0: "NORMAL", 1: "PNEUMONIA"}
 
 
+def _get_preprocess_fn(model):
+    """Return the correct preprocessing function based on model name."""
+    name = model.name.lower()
+    if "densenet" in name:
+        from tensorflow.keras.applications.densenet import preprocess_input
+    else:
+        from tensorflow.keras.applications.resnet50 import preprocess_input
+    return preprocess_input
+
+
 class PneumoniaPredictor:
     def __init__(self, model_path: str, threshold: float = DEFAULT_THRESHOLD):
         path = Path(model_path)
         if not path.exists():
             raise FileNotFoundError(f"Model not found: {model_path}")
 
-        self.model     = load_model(str(path))
-        self.threshold = threshold
-        self.img_size  = IMG_SIZE
+        self.model          = load_model(str(path))
+        self.threshold      = threshold
+        self.img_size       = IMG_SIZE
+        self._preprocess_fn = _get_preprocess_fn(self.model)
         self._warmup()
 
     def _warmup(self):
@@ -38,7 +48,7 @@ class PneumoniaPredictor:
         img = cv2.resize(img, (self.img_size, self.img_size))
         img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
         img = np.expand_dims(img, axis=0).astype(np.float32)
-        return preprocess_input(img)
+        return self._preprocess_fn(img)
 
     def predict(self, image_bytes: bytes) -> dict:
         t0             = time.time()

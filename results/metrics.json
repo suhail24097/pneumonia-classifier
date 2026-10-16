@@ -1,4 +1,24 @@
 {
+  "v1": {
+    "model": "ResNet50 (ImageNet pretrained, 2-phase fine-tuned)",
+    "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
+    "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
+    "threshold_default_0_5": {"accuracy": 0.78, "auc_roc": 0.9576, "normal_recall": 0.41, "pneumonia_recall": 0.99},
+    "threshold_optimal_0_87": {"accuracy": 0.92, "auc_roc": 0.9576, "normal_precision": 0.96, "normal_recall": 0.85, "pneumonia_precision": 0.90, "pneumonia_recall": 0.96, "f1_normal": 0.90, "f1_pneumonia": 0.93},
+    "confusion_matrix_at_0_87": {"TP": 374, "TN": 199, "FP": 35, "FN": 16},
+    "sensitivity": 0.9590,
+    "specificity": 0.8504,
+    "best_threshold": 0.87
+  },
+  "v2": {
+    "model": "DenseNet121 (ImageNet pretrained, 2-phase fine-tuned, Focal Loss + Cosine LR)",
+    "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
+    "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
+    "phase1_best_val_auc": 0.9786,
+    "phase2_best_val_auc": "pending — training in progress",
+    "note": "v2 training running on Colab T4 GPU; final metrics to be updated post-completion"
+  },
+  "active_model": "v1",
   "model": "ResNet50 (ImageNet pretrained, 2-phase fine-tuned)",
   "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
   "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
