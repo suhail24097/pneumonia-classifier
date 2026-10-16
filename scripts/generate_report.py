@@ -370,7 +370,7 @@ class TrainingDiagram(Flowable):
         c.setFillColor(DGRAY)
         metrics = [
             (BW + 30 + BW/2, "Phase 1 val_auc: 0.9786"),
-            (BW*2 + 60 + BW/2, "Phase 2 val_auc: ~0.98+"),
+            (BW*2 + 60 + BW/2, "Final AUC: 0.9842 (TTA×5)"),
         ]
         for mx, mt in metrics:
             c.drawCentredString(mx, BY - 14, mt)
@@ -406,11 +406,12 @@ story.append(SP(30))
 
 exec_data = [[Paragraph(
     "<b>Summary</b><br/>"
-    "Binary chest X-ray classifier (NORMAL vs PNEUMONIA) built on ResNet50 transfer "
-    "learning (v1) and upgraded to DenseNet121 with Focal Loss and Cosine LR (v2). "
-    "Served via FastAPI REST API, containerised with Docker, with Grad-CAM visual explanations. "
-    "V1: <b>AUC-ROC 0.9576 · 92% accuracy</b> · PNEUMONIA recall 96% · NORMAL recall 85% "
-    "(threshold 0.87). V2 Phase 1 already achieved <b>val_auc 0.9786</b> — surpassing v1.",
+    "Binary chest X-ray classifier (NORMAL vs PNEUMONIA) using two-generation transfer learning, "
+    "served via FastAPI REST API, containerised with Docker, with Grad-CAM visual explanations. "
+    "V1 (ResNet50): AUC-ROC 0.9576 · 92% accuracy (baseline). "
+    "V2 (DenseNet121 + Focal Loss + Cosine LR + TTA): "
+    "<b>AUC-ROC 0.9842 · 95% accuracy · NORMAL recall 94% · F1 macro 0.94</b>. "
+    "False positives reduced 57% (35→15). MLflow experiment tracking. All 7 automated tests passing.",
     body_style,
 )]]
 exec_table = Table(exec_data, colWidths=[15*cm])
@@ -509,7 +510,7 @@ arch_data = [
     ["LR Schedule",             "ReduceLROnPlateau",                     "Cosine Decay (1e-4 → 1e-6)"],
     ["Phase 2 unfrozen layers", "Top 30 of ResNet50",                    "Top 50 of DenseNet121"],
     ["Phase 1 val_auc",         "0.9971",                                "0.9786"],
-    ["Final test AUC",          "0.9576",                                "training in progress"],
+    ["Final test AUC (TTA×5)",  "0.9576",                                "<b>0.9842</b>"],
 ]
 story.append(make_table(arch_data, [4.5*cm, 5*cm, 5.5*cm]))
 story.append(SP(10))
@@ -532,30 +533,37 @@ story.append(P(
 story.append(SP())
 
 # ── Section 4: Results ────────────────────────────────────────────────────────
-story.append(H("4. Evaluation Results (v1 — ResNet50, Active Model)"))
+story.append(H("4. Evaluation Results"))
 story.append(P(
-    "Evaluated on the held-out test set of 624 images. AUC-ROC of <b>0.9576</b> exceeds "
-    "the 0.95 target. Threshold tuning from 0.5 → 0.87 delivers a major clinical improvement."
+    "Both models evaluated on the identical held-out test set of 624 images (234 NORMAL, 390 PNEUMONIA). "
+    "V2 results use 5-pass Test-Time Augmentation (TTA). AUC-ROC target of 0.95 exceeded by both models; "
+    "v2 reaches <b>0.9842</b>. The 57% reduction in false positives (35→15) is the headline clinical improvement."
 ))
+
+story.append(SH("Table 1: Head-to-Head Comparison at Threshold = 0.87"))
 perf_data = [
-    ["Metric",                     "Threshold = 0.5 (default)", "Threshold = 0.87 (optimal)"],
-    ["Accuracy",                   "78%",    "92%"],
-    ["AUC-ROC",                    "0.9576", "0.9576"],
-    ["PNEUMONIA Recall (Sens.)",   "99%",    "96%"],
-    ["NORMAL Recall (Spec.)",      "41%",    "85%"],
-    ["PNEUMONIA Precision",        "74%",    "90%"],
-    ["NORMAL Precision",           "98%",    "96%"],
-    ["F1 — PNEUMONIA",             "0.85",   "0.93"],
-    ["F1 — NORMAL",                "0.58",   "0.90"],
+    ["Metric",                     "v1 — ResNet50", "v2 — DenseNet121 + TTA"],
+    ["Accuracy",                   "92%",    "<b>95%</b>"],
+    ["AUC-ROC",                    "0.9576", "<b>0.9842</b>"],
+    ["PNEUMONIA Precision",        "90%",    "96%"],
+    ["PNEUMONIA Recall (Sens.)",   "96%",    "95%"],
+    ["PNEUMONIA F1",               "0.93",   "0.96"],
+    ["NORMAL Precision",           "96%",    "92%"],
+    ["NORMAL Recall (Spec.)",      "85%",    "<b>94%</b>"],
+    ["NORMAL F1",                  "0.90",   "0.93"],
+    ["F1 macro",                   "0.91",   "<b>0.94</b>"],
+    ["False Positives (FP)",       "35",     "<b>15 (−57%)</b>"],
+    ["False Negatives (FN)",       "16",     "19"],
+    ["Total errors / 624",         "51",     "<b>34</b>"],
 ]
-story.append(make_table(perf_data, [6*cm, 4.5*cm, 4.5*cm]))
+story.append(make_table(perf_data, [6.5*cm, 3.5*cm, 5*cm]))
 story.append(SP(8))
 
-story.append(SH("Confusion Matrix at Threshold = 0.87 (test set, 624 images)"))
+story.append(SH("Confusion Matrix — v2 DenseNet121 at Threshold 0.87 (test set, 624 images)"))
 cm_data = [
     ["",                  "Predicted NORMAL", "Predicted PNEUMONIA"],
-    ["Actual NORMAL",     "TN = 199",         "FP = 35"],
-    ["Actual PNEUMONIA",  "FN = 16",          "TP = 374"],
+    ["Actual NORMAL",     "TN = 219",         "FP = 15"],
+    ["Actual PNEUMONIA",  "FN = 19",          "TP = 371"],
 ]
 cm_table = Table(cm_data, colWidths=[5*cm, 4.5*cm, 4.5*cm])
 cm_table.setStyle(TableStyle([
@@ -590,13 +598,14 @@ story.append(P(
 ))
 story.append(SP())
 
-story.append(SH("v2 DenseNet121 — Training Progress"))
+story.append(SH("v2 DenseNet121 — Training Summary (Colab T4 GPU)"))
 v2_data = [
-    ["Phase",   "Best val_auc", "Epochs",  "Status"],
-    ["Phase 1", "0.9786",       "10/10",   "Complete — surpasses v1 (0.9576)"],
-    ["Phase 2", "≥0.9786",      "running", "In progress on Colab T4 GPU"],
+    ["Phase",        "Best val_auc", "Epochs", "Status"],
+    ["Phase 1",      "0.9786",       "10/10",  "Complete"],
+    ["Phase 2",      "0.9786",       "15/20",  "EarlyStopping at epoch 15 (patience=7), best weights restored"],
+    ["Eval (TTA×5)", "0.9842",       "—",      "Final test AUC — +0.0266 over v1; accuracy 95%; F1 macro 0.94"],
 ]
-story.append(make_table(v2_data, [3*cm, 3*cm, 3*cm, 6*cm]))
+story.append(make_table(v2_data, [3*cm, 3*cm, 2.5*cm, 6.5*cm]))
 story.append(SP())
 
 # ── Section 5: Error Analysis ─────────────────────────────────────────────────

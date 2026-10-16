@@ -1,9 +1,16 @@
 # Chest X-Ray Pneumonia Detection
 
-Binary classification of chest X-rays (NORMAL vs PNEUMONIA) using transfer learning (ResNet50 v1 / DenseNet121 v2), served via FastAPI, containerized with Docker.
+Binary classification of chest X-rays (NORMAL vs PNEUMONIA) using transfer learning, served via FastAPI, containerized with Docker.
 
-**v1 Results (active model):** Accuracy 92% · AUC-ROC 0.9576 · PNEUMONIA Recall 96% · NORMAL Recall 85% · Threshold 0.87  
-**v2 Progress:** DenseNet121 + Focal Loss + Cosine LR — Phase 1 val_auc **0.9786** (surpasses v1 already)
+| | v1 — ResNet50 | v2 — DenseNet121 (active) |
+|---|---|---|
+| Accuracy | 92% | **95%** |
+| AUC-ROC | 0.9576 | **0.9842** |
+| PNEUMONIA Recall | 96% | 95% |
+| NORMAL Recall | 85% | **94%** |
+| False Positives | 35 | **15** (-57%) |
+| Threshold | 0.87 | 0.87 |
+| TTA | No | Yes (5 passes) |
 
 ---
 
@@ -216,20 +223,23 @@ curl -X POST "http://localhost:8000/predict?threshold=0.5" \
 
 ## Model Performance
 
-| Metric | Default (0.5) | Optimal (0.87) |
-|--------|--------------|----------------|
-| Accuracy | 78% | **92%** |
-| AUC-ROC | 0.9576 | 0.9576 |
-| PNEUMONIA Recall | 99% | 96% |
-| NORMAL Recall | 41% | **85%** |
-| F1 (macro avg) | 0.71 | **0.91** |
+**v2 — DenseNet121 + TTA (active model, threshold 0.87):**
 
-**Confusion Matrix at threshold 0.87** (test set, 624 images):
+| Metric | v1 ResNet50 | v2 DenseNet121 |
+|--------|-------------|----------------|
+| Accuracy | 92% | **95%** |
+| AUC-ROC | 0.9576 | **0.9842** |
+| PNEUMONIA Recall | 96% | 95% |
+| NORMAL Recall | 85% | **94%** |
+| F1 macro | 0.91 | **0.94** |
+| False Positives | 35 | **15** |
+
+**Confusion Matrix — v2 DenseNet121 at threshold 0.87** (test set, 624 images):
 
 |                  | Predicted NORMAL | Predicted PNEUMONIA |
 |------------------|-----------------|---------------------|
-| Actual NORMAL    | TN = 199        | FP = 35             |
-| Actual PNEUMONIA | FN = 16         | TP = 374            |
+| Actual NORMAL    | TN = 219        | FP = 15             |
+| Actual PNEUMONIA | FN = 19         | TP = 371            |
 
 ---
 
@@ -310,9 +320,14 @@ pneumonia-classifier/
 
 ## Results and Limitations
 
-**Results (v1 — ResNet50, active model):**
-- Accuracy: **92%** at threshold 0.87 · AUC-ROC: **0.9576**
-- PNEUMONIA recall: 96% · NORMAL recall: 85% · F1 macro: 0.91
+**Results — v2 DenseNet121 (active, TTA × 5):**
+- Accuracy: **95%** · AUC-ROC: **0.9842** · F1 macro: **0.94**
+- PNEUMONIA: precision 0.96, recall 0.95, F1 0.96
+- NORMAL: precision 0.92, recall 0.94, F1 0.93
+- 34 errors on 624 test images (15 FP, 19 FN) — vs 51 errors in v1
+
+**Results — v1 ResNet50 (baseline):**
+- Accuracy: 92% at threshold 0.87 · AUC-ROC: 0.9576 · F1 macro: 0.91
 - 51 errors on 624 test images (35 FP, 16 FN)
 
 **Known Limitations:**

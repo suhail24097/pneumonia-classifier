@@ -1,31 +1,45 @@
 {
+  "active_model": "v2",
   "v1": {
     "model": "ResNet50 (ImageNet pretrained, 2-phase fine-tuned)",
     "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
     "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
     "threshold_default_0_5": {"accuracy": 0.78, "auc_roc": 0.9576, "normal_recall": 0.41, "pneumonia_recall": 0.99},
-    "threshold_optimal_0_87": {"accuracy": 0.92, "auc_roc": 0.9576, "normal_precision": 0.96, "normal_recall": 0.85, "pneumonia_precision": 0.90, "pneumonia_recall": 0.96, "f1_normal": 0.90, "f1_pneumonia": 0.93},
+    "threshold_optimal_0_87": {
+      "accuracy": 0.92, "auc_roc": 0.9576,
+      "normal_precision": 0.96, "normal_recall": 0.85,
+      "pneumonia_precision": 0.90, "pneumonia_recall": 0.96,
+      "f1_normal": 0.90, "f1_pneumonia": 0.93, "f1_macro": 0.91
+    },
     "confusion_matrix_at_0_87": {"TP": 374, "TN": 199, "FP": 35, "FN": 16},
-    "sensitivity": 0.9590,
-    "specificity": 0.8504,
-    "best_threshold": 0.87
+    "sensitivity": 0.9590, "specificity": 0.8504, "best_threshold": 0.87
   },
   "v2": {
-    "model": "DenseNet121 (ImageNet pretrained, 2-phase fine-tuned, Focal Loss + Cosine LR)",
+    "model": "DenseNet121 (ImageNet pretrained, 2-phase fine-tuned, Focal Loss + Cosine LR + TTA)",
     "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
     "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
+    "tta_passes": 5,
+    "threshold_optimal_0_87": {
+      "accuracy": 0.95, "auc_roc": 0.9842,
+      "normal_precision": 0.92, "normal_recall": 0.94,
+      "pneumonia_precision": 0.96, "pneumonia_recall": 0.95,
+      "f1_normal": 0.93, "f1_pneumonia": 0.96,
+      "f1_macro": 0.94, "f1_weighted": 0.95
+    },
+    "confusion_matrix_at_0_87": {"TP": 371, "TN": 219, "FP": 15, "FN": 19},
+    "sensitivity": 0.9513, "specificity": 0.9359, "best_threshold": 0.87,
     "phase1_best_val_auc": 0.9786,
-    "phase2_best_val_auc": "pending — training in progress",
-    "note": "v2 training running on Colab T4 GPU; final metrics to be updated post-completion"
+    "phase2_best_val_auc": 0.9786,
+    "early_stopping_epoch": 15,
+    "mlflow_experiment": "pneumonia-xray-classification",
+    "mlflow_run": "densenet121-focal-cosine-tta",
+    "model_file": "pneumonia_densenet121_v2.keras"
   },
-  "active_model": "v1",
-  "model": "ResNet50 (ImageNet pretrained, 2-phase fine-tuned)",
-  "dataset": "Kaggle Chest X-Ray Images (Pneumonia)",
-  "test_set": {"total": 624, "normal": 234, "pneumonia": 390},
-  "threshold_default_0_5": {"accuracy": 0.78, "auc_roc": 0.9576, "normal_recall": 0.41, "pneumonia_recall": 0.99},
-  "threshold_optimal_0_87": {"accuracy": 0.92, "auc_roc": 0.9576, "normal_precision": 0.96, "normal_recall": 0.85, "pneumonia_precision": 0.90, "pneumonia_recall": 0.96, "f1_normal": 0.90, "f1_pneumonia": 0.93},
-  "confusion_matrix_at_0_87": {"TP": 374, "TN": 199, "FP": 35, "FN": 16},
-  "sensitivity": 0.9590,
-  "specificity": 0.8504,
-  "best_threshold": 0.87
+  "improvement_v1_to_v2": {
+    "accuracy": "+3% (92% → 95%)",
+    "auc_roc": "+0.0266 (0.9576 → 0.9842)",
+    "normal_recall": "+9% (85% → 94%) — fewer healthy patients misclassified",
+    "false_positives": "-57% (35 → 15) — fewer healthy patients sent for unnecessary treatment",
+    "false_negatives": "+3 (16 → 19) — marginal trade-off accepted for far better specificity"
+  }
 }
